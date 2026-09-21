@@ -46,27 +46,42 @@ def compress_image():
         img = img_original.copy()
         
         # Compression and resizing loop
+        attempts = 0
+        max_attempts = 60
         while True:
+            attempts += 1
+            lbl_result.config(
+                text=f"Processing... (pass {attempts}, quality {quality}, scale {scale_factor:.2f})",
+                fg="blue"
+            )
+            root.update()
+
             img.save(output_path, "JPEG", quality=quality, optimize=True)
             current_size = os.path.getsize(output_path)
-            
-            if current_size <= target_bytes or scale_factor < 0.2: 
+
+            if current_size <= target_bytes or scale_factor < 0.2 or attempts >= max_attempts:
                 break
-                
+
             if quality > 20:
                 quality -= 10
             else:
-                quality = 70 
-                scale_factor *= 0.85 
-                new_width = int(img_original.width * scale_factor)
-                new_height = int(img_original.height * scale_factor)
+                quality = 70
+                scale_factor *= 0.85
+                new_width = max(1, int(img_original.width * scale_factor))
+                new_height = max(1, int(img_original.height * scale_factor))
                 img = img_original.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
         # Update UI and show success message
         final_size_kb = current_size // 1024
-        msg = f"SUCCESS!\n\nNew Size: {final_size_kb} KB\nSaved at:\n{output_path}"
-        lbl_result.config(text=f"Done! New Size: {final_size_kb} KB", fg="green")
-        messagebox.showinfo("Success", msg)
+        if current_size <= target_bytes:
+            msg = f"SUCCESS!\n\nNew Size: {final_size_kb} KB\nSaved at:\n{output_path}"
+            lbl_result.config(text=f"Done! New Size: {final_size_kb} KB", fg="green")
+            messagebox.showinfo("Success", msg)
+        else:
+            msg = (f"Target not reached.\n\nSmallest achieved: {final_size_kb} KB "
+                   f"(target {target_kb} KB)\nSaved at:\n{output_path}")
+            lbl_result.config(text=f"Stopped at {final_size_kb} KB (target not reached)", fg="orange")
+            messagebox.showwarning("Finished", msg)
         
     except Exception as e:
         lbl_result.config(text="Process failed.", fg="red")
